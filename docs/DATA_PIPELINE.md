@@ -29,6 +29,8 @@ occurrence. It contains:
 - window metadata: sampling rate, start/stop samples and EEG length;
 - raw variable EEG tensor `[C,T] float32`;
 - frozen word occurrence IDs, positions, surfaces and character spans;
+- stable per-word context-token-group and lexical-surface-type indices;
+- stable integer `sentence_group_index`;
 - stable per-word Master indices (`-1` for a non-Master word);
 - unique present-keyword truth in the same Master index space;
 - optional train-only contextual word tensor;
@@ -48,11 +50,14 @@ eeg_lengths               [B] int64
 context_words             [B,N_max,...] float32 or None
 word_mask                 [B,N_max] bool
 word_lengths              [B] int64
+context_token_group_indices [B,N_max] int64, padding=-1
+surface_type_indices      [B,N_max] int64, padding=-1
 word_keyword_indices      [B,N_max] int64, padding=-1
 word_positions            [B,N_max] int64, padding=-1
 word_char_spans           [B,N_max,2] int64, padding=-1
 subject_indices           [B] int64
 text_embedding_indices    [B] int64
+sentence_group_indices    [B] int64
 ```
 
 MacBERT retains feature tail `[4,768]`; BGE-M3 retains `[1024]`. Collate does
@@ -71,6 +76,13 @@ Variable present-keyword truth and string metadata remain per-sample tuples.
 - Master keywords use ascending frozen lexicon rank.
 - Core, Main, Extended and Master share the same 247-entry index space.
 - Indices never change by fold or fold-specific eligibility.
+- Surface types use ascending Unicode order over all 14,034 frozen word
+  occurrences; non-Master words retain distinct lexical identities.
+- Context-token groups use ascending
+  `(sentence_group_id, word_position, surface_form)` tuples, so normalized
+  duplicate sentences share targets while different word positions do not.
+- The lexical mapping records both source SHA256 values and its own canonical
+  mapping SHA256.
 
 ## 5. Worker resource lifecycle
 

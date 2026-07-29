@@ -53,6 +53,10 @@ def collate_context_eeg_samples(
             raise ValueError("word_positions shape mismatch")
         if sample.word_keyword_indices.shape != (word_length,):
             raise ValueError("word_keyword_indices shape mismatch")
+        if sample.context_token_group_indices.shape != (word_length,):
+            raise ValueError("context_token_group_indices shape mismatch")
+        if sample.surface_type_indices.shape != (word_length,):
+            raise ValueError("surface_type_indices shape mismatch")
         if sample.word_char_spans.shape != (word_length, 2):
             raise ValueError("word_char_spans shape mismatch")
         if len(sample.word_surface_forms) != word_length:
@@ -63,6 +67,14 @@ def collate_context_eeg_samples(
             raise ValueError("word_positions must be int64")
         if sample.word_keyword_indices.dtype != torch.int64:
             raise ValueError("word_keyword_indices must be int64")
+        if sample.context_token_group_indices.dtype != torch.int64:
+            raise ValueError("context_token_group_indices must be int64")
+        if sample.surface_type_indices.dtype != torch.int64:
+            raise ValueError("surface_type_indices must be int64")
+        if bool((sample.context_token_group_indices < 0).any()):
+            raise ValueError("context_token_group_indices must be non-negative")
+        if bool((sample.surface_type_indices < 0).any()):
+            raise ValueError("surface_type_indices must be non-negative")
         if sample.word_char_spans.dtype != torch.int64:
             raise ValueError("word_char_spans must be int64")
         if sample.present_keyword_indices.dtype != torch.int64:
@@ -144,6 +156,16 @@ def collate_context_eeg_samples(
         fill_value=-1,
         dtype=torch.int64,
     )
+    context_token_group_indices = torch.full(
+        (batch_size, maximum_word_length),
+        fill_value=-1,
+        dtype=torch.int64,
+    )
+    surface_type_indices = torch.full(
+        (batch_size, maximum_word_length),
+        fill_value=-1,
+        dtype=torch.int64,
+    )
     word_positions = torch.full(
         (batch_size, maximum_word_length),
         fill_value=-1,
@@ -174,6 +196,12 @@ def collate_context_eeg_samples(
         word_keyword_indices[
             batch_index, :word_length
         ] = sample.word_keyword_indices
+        context_token_group_indices[
+            batch_index, :word_length
+        ] = sample.context_token_group_indices
+        surface_type_indices[
+            batch_index, :word_length
+        ] = sample.surface_type_indices
         word_positions[batch_index, :word_length] = sample.word_positions
         word_char_spans[
             batch_index, :word_length
@@ -199,6 +227,8 @@ def collate_context_eeg_samples(
         word_mask=word_mask,
         word_lengths=word_lengths_tensor,
         word_keyword_indices=word_keyword_indices,
+        context_token_group_indices=context_token_group_indices,
+        surface_type_indices=surface_type_indices,
         word_positions=word_positions,
         word_char_spans=word_char_spans,
         subject_indices=torch.tensor(
@@ -207,6 +237,10 @@ def collate_context_eeg_samples(
         ),
         text_embedding_indices=torch.tensor(
             [sample.text_embedding_idx for sample in samples],
+            dtype=torch.int64,
+        ),
+        sentence_group_indices=torch.tensor(
+            [sample.sentence_group_index for sample in samples],
             dtype=torch.int64,
         ),
         outer_folds=torch.tensor(

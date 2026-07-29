@@ -88,10 +88,52 @@ Core 是第一主分析词表。Main 和 Extended 在 out-of-fold 结果上作�
 
 \[
 \mathcal L =
-\mathcal L_{\mathrm{OT-context}}
+\lambda_{\mathrm{OT}}\mathcal L_{\mathrm{OT-context}}
 +\lambda_{\mathrm{token}}\mathcal L_{\mathrm{context-token}}
 +\lambda_{\mathrm{lex}}\mathcal L_{\mathrm{prototype}}
 \]
+
+全部权重非负且至少一项大于零；默认完整模型三项都启用，权重与
+temperature 只能由 inner-validation 选择。OT-context 是每个样本的
+expected transport cost：
+
+\[
+\mathcal L_{\mathrm{OT-context}}
+=\frac{1}{B}\sum_b\sum_{t,j}P_{btj}C_{btj}.
+\]
+
+每个 plan 总质量为 1，因此句长和 EEG 长度不会改变样本权重；entropy
+只作诊断。OT-context 单独优化存在表示塌缩风险，OT-only 只能作为消融。
+
+Context-token 使用 cosine/temperature 的对称 multi-positive InfoNCE：
+
+\[
+\mathcal L_{\mathrm{context-token}}
+=\tfrac12(\mathcal L_{\mathrm{EEG\to Text}}
++\mathcal L_{\mathrm{Text\to EEG}}).
+\]
+
+正例是 `context_token_group_index` 相同的全部目标。相同
+`surface_type_index` 但 context group 不同的词既不作正例，也从
+denominator 屏蔽，防止同词跨上下文成为假负例；该规则覆盖所有词，而
+不只覆盖 Master。默认先在样本内对有效词 query 求平均，再在样本间求
+平均；Text→EEG 对重复文本组再做等权，禁止全局 token mean 作为默认。
+
+Prototype bank 固定为 Master 顺序的 `[247,256]`。每折只使用该折
+inner-train 文本，在当前 projector 空间中按以下顺序聚合：
+
+```text
+同一 text_embedding_idx 的句内同词 occurrence 均值
+→ 同一规范化 sentence_group 内均值
+→ 不同 sentence_group 等权均值
+→ L2 normalize
+```
+
+每个 `text_embedding_idx` 只计一次，EEG view 数不参与权重。
+`train_group_df < 10` 的行保留但 `available_mask=false`。Prototype loss
+只对 Master 且 target prototype 可用的词，在全部 available prototype
+上进行 cosine softmax；先按样本内有效词平均，再对含有效词的样本平均。
+bank 在刷新后 detach，历史构建图不接受梯度。
 
 明确不加入：
 

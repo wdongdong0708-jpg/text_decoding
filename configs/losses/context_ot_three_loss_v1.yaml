@@ -1,0 +1,17 @@
+schema_version: context_ot_three_loss_v1
+
+loss:
+  ot_context:
+    weight: 1.0
+
+  context_token:
+    weight: 1.0
+    temperature: 0.07
+    symmetric: true
+    reduction: sample_balanced
+
+  prototype:
+    weight: 0.5
+    temperature: 0.07
+    min_train_group_df: 10
+    reduction: sample_balanced

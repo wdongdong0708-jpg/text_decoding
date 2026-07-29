@@ -165,8 +165,8 @@
 
 ## 阶段 5：Sinkhorn OT 与三项损失
 
-状态：阶段 5A（文本投影 + masked balanced Sinkhorn OT）已完成；三项损失
-与 train-only prototype builder 待下一阶段实现。
+状态：阶段 5A（文本投影 + masked balanced Sinkhorn OT）和阶段 5B
+（三项损失 + train-only prototype builder）均已完成。
 
 - masked、balanced、log-domain、内部 FP32 的 Sinkhorn。
 - 均匀有效时间边缘与均匀有效词边缘，cosine cost。
@@ -197,14 +197,37 @@
   subject adapter 开关及 325 帧最大 EEG 输出 batch 均完成前后向
   smoke；validation/test context targets 未被访问。
 - 当前只把 expected transport cost 作为公开 cost，并独立报告 entropy；
-  三项最终训练 loss、prototype、partial/unbalanced/monotonic OT、位置
-  cost 和顺序约束均未在本阶段引入。
+  partial/unbalanced/monotonic OT、位置 cost 和顺序约束均未在本阶段
+  引入。
 
-## 阶段 6：逐 fold 训练与 train-only prototype
+### 阶段 5B 完成记录
+
+- OT-context 是每个样本 `sum(P*C)` 后的 batch 等权平均；entropy 仅为
+  诊断，plan 不 detach。
+- Context-token 是对称 multi-positive InfoNCE。相同 context-token group
+  为正例；相同 lexical surface、不同 context group 既不是正例也不进入
+  denominator。默认先在每个 EEG 样本内按词平均，再在样本间平均；
+  Text→EEG 额外对重复文本组等权。
+- Prototype loss 只分类当前 batch 中 Master 且 prototype 可用的词；
+  candidate 始终保持固定 247 行，不可用行用 mask 排除。bank detach，
+  梯度仍经过 OT pooling 回到 EEG 和当前文本投影训练路径。
+- Prototype builder 只接受当前 fold 的 train role。每个
+  `text_embedding_idx` 只投影一次，依次执行句内同词平均、规范化
+  `sentence_group` 内平均、不同 group 等权平均和最终 L2 normalize；
+  EEG view 数不会参与权重。
+- builder 将每折 `train_sentence_df`/`train_group_df` 与冻结 eligibility
+  表逐行核对；加载时 fold、backend、cache、projector、lexical mapping
+  和文件 SHA256 任一不符都会报错。
+- 双 backend 的 247×256 FP32 bank、FP32/AMP 三项损失、无有效
+  prototype、重复词、同句多 view、subject adapter 开关和最大长度真实
+  batch 前后向均通过。
+
+## 阶段 6：逐 fold 训练编排、checkpoint 与 prototype refresh
 
 - 每个 outer fold 只在 inner-train 优化参数。
 - inner-validation 只用于早停、checkpoint、损失权重、OT 参数和全局阈值。
-- 每折 prototype 只由该折 inner-train 的上下文词表示生成，按 `text_embedding_idx` 计一次，并报告 context-group DF。
+- 使用阶段 5B 已冻结的 builder 按明确周期刷新 detached prototype，
+  并用最终 checkpoint 再构建一次。
 - outer-test 文本不得进入 prototype、训练或 checkpoint 选择。
 - 固定随机种子、配置、数据哈希、模型 revision 和 checkpoint 元数据。
 

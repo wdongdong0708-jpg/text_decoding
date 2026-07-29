@@ -31,6 +31,9 @@ class ContextEEGSample:
     word_char_spans: torch.Tensor
     word_keyword_ids: tuple[str, ...]
     word_keyword_indices: torch.Tensor
+    context_token_group_indices: torch.Tensor
+    surface_type_indices: torch.Tensor
+    sentence_group_index: int
     present_keyword_indices: torch.Tensor
     context_words: torch.Tensor | None
     context_backend: str | None
@@ -47,10 +50,13 @@ class ContextEEGBatch:
     word_mask: torch.Tensor
     word_lengths: torch.Tensor
     word_keyword_indices: torch.Tensor
+    context_token_group_indices: torch.Tensor
+    surface_type_indices: torch.Tensor
     word_positions: torch.Tensor
     word_char_spans: torch.Tensor
     subject_indices: torch.Tensor
     text_embedding_indices: torch.Tensor
+    sentence_group_indices: torch.Tensor
     outer_folds: torch.Tensor
     runs: torch.Tensor
     sfreqs: torch.Tensor
@@ -92,6 +98,12 @@ class ContextEEGBatch:
             word_keyword_indices=move(  # type: ignore[arg-type]
                 self.word_keyword_indices
             ),
+            context_token_group_indices=move(  # type: ignore[arg-type]
+                self.context_token_group_indices
+            ),
+            surface_type_indices=move(  # type: ignore[arg-type]
+                self.surface_type_indices
+            ),
             word_positions=move(self.word_positions),  # type: ignore[arg-type]
             word_char_spans=move(  # type: ignore[arg-type]
                 self.word_char_spans
@@ -101,6 +113,9 @@ class ContextEEGBatch:
             ),
             text_embedding_indices=move(  # type: ignore[arg-type]
                 self.text_embedding_indices
+            ),
+            sentence_group_indices=move(  # type: ignore[arg-type]
+                self.sentence_group_indices
             ),
             outer_folds=move(self.outer_folds),  # type: ignore[arg-type]
             runs=move(self.runs),  # type: ignore[arg-type]
@@ -128,6 +143,12 @@ class ContextEEGBatch:
             word_keyword_indices=pin(  # type: ignore[arg-type]
                 self.word_keyword_indices
             ),
+            context_token_group_indices=pin(  # type: ignore[arg-type]
+                self.context_token_group_indices
+            ),
+            surface_type_indices=pin(  # type: ignore[arg-type]
+                self.surface_type_indices
+            ),
             word_positions=pin(self.word_positions),  # type: ignore[arg-type]
             word_char_spans=pin(  # type: ignore[arg-type]
                 self.word_char_spans
@@ -137,6 +158,9 @@ class ContextEEGBatch:
             ),
             text_embedding_indices=pin(  # type: ignore[arg-type]
                 self.text_embedding_indices
+            ),
+            sentence_group_indices=pin(  # type: ignore[arg-type]
+                self.sentence_group_indices
             ),
             outer_folds=pin(self.outer_folds),  # type: ignore[arg-type]
             runs=pin(self.runs),  # type: ignore[arg-type]
@@ -161,9 +185,18 @@ class ContextEEGBatch:
             "word_keyword_indices": list(
                 self.word_keyword_indices.shape
             ),
+            "context_token_group_indices": list(
+                self.context_token_group_indices.shape
+            ),
+            "surface_type_indices": list(
+                self.surface_type_indices.shape
+            ),
             "word_positions": list(self.word_positions.shape),
             "subject_indices": list(self.subject_indices.shape),
             "text_embedding_indices": list(
                 self.text_embedding_indices.shape
+            ),
+            "sentence_group_indices": list(
+                self.sentence_group_indices.shape
             ),
         }

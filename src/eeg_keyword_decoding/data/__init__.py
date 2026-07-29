@@ -18,6 +18,12 @@ from .folds import (
     write_nested_fold_artifacts,
 )
 from .keyword_index import MasterKeywordIndex, build_master_keyword_index
+from .lexical_indices import (
+    LEXICAL_IDENTITY_SCHEMA_VERSION,
+    ContextTokenKey,
+    LexicalIdentityIndex,
+    build_lexical_identity_index,
+)
 from .protocol_assets import ProtocolAuditError, audit_littleprince_hf_v1
 from .sample import ContextEEGBatch, ContextEEGSample
 from .split_index import (
@@ -46,6 +52,9 @@ __all__ = [
     "ContextTargetAccessError",
     "EEGManifestRecord",
     "MasterKeywordIndex",
+    "LEXICAL_IDENTITY_SCHEMA_VERSION",
+    "ContextTokenKey",
+    "LexicalIdentityIndex",
     "ProtocolAuditError",
     "SPLIT_ROLES",
     "SentenceFoldAssignment",
@@ -57,6 +66,7 @@ __all__ = [
     "align_segmented_words",
     "audit_littleprince_hf_v1",
     "build_master_keyword_index",
+    "build_lexical_identity_index",
     "build_nested_fold_rows",
     "build_split_view_index",
     "build_subject_index",

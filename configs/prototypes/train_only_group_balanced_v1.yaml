@@ -1,0 +1,14 @@
+schema_version: train_only_group_balanced_prototype_v1
+candidate_space: master_fixed
+candidate_count: 247
+output_dim: 256
+source_role: train
+min_train_group_df: 10
+occurrence_normalization: l2
+aggregation:
+  - within_sentence_keyword_mean
+  - within_sentence_group_mean
+  - equal_sentence_group_mean
+final_normalization: l2
+unavailable_vector: zero
+refresh_policy: explicit_current_projector

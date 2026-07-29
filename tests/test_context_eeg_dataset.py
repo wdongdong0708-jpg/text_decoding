@@ -122,6 +122,12 @@ def test_dataset_word_count_matches_frozen_fold_token_count(
     assignment = split_index.assignment(0, sample.text_embedding_idx)
     assert len(sample.word_occurrence_ids) == assignment.token_count
     assert sample.word_keyword_indices.shape == (assignment.token_count,)
+    assert sample.context_token_group_indices.shape == (
+        assignment.token_count,
+    )
+    assert sample.surface_type_indices.shape == (assignment.token_count,)
+    assert bool((sample.context_token_group_indices >= 0).all())
+    assert bool((sample.surface_type_indices >= 0).all())
     assert all(
         occurrence_id.startswith(f"lp:{sample.text_embedding_idx}:word:")
         for occurrence_id in sample.word_occurrence_ids

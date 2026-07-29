@@ -20,7 +20,7 @@
 
 ## 当前阶段
 
-阶段 0–4 及阶段 5A 已完成：
+阶段 0–4 及阶段 5A/5B 已完成：
 
 - 干净的 `src/` 包结构；
 - 冻结的《小王子》高频词协议资产；
@@ -52,10 +52,24 @@
 - 按实际列质量归一化的词条件 EEG transport pooling；
 - 两种文本 backend 的 FP32/AMP、subject adapter 开关和最大长度真实
   inner-train batch 前后向 smoke。
+- 覆盖全部 14,034 个词 occurrence 的稳定 `surface_type_index`，以及由
+  `sentence_group_id + word_position + surface_form` 定义的
+  `context_token_group_index`；
+- expected transport cost、对称多正例 context-token InfoNCE 和固定
+  Master 空间 prototype 分类三项损失；
+- context-token 中同 lexical type、不同 context group 的假负例硬屏蔽，
+  以及默认逐样本等权的 token reduction；
+- 只接受当前 outer fold inner-train、按句内重复词→规范化句组→不同
+  context group 等权聚合的 247×256 prototype builder；
+- prototype bank 的可用 mask、保存/加载、文件哈希以及 fold/backend/
+  cache/projector provenance 硬校验；
+- MacBERT/BGE-M3、FP32/AMP、无 Master 词、重复词、多受试者同句 view、
+  subject adapter 开关和最大长度真实三项损失前后向 smoke。
 
 尚未实现：
 
-- 三项训练损失与 train-only prototype builder；
+- 逐 fold epoch 训练、checkpoint、周期 prototype refresh 和
+  inner-validation 选择；
 - 固定词表评估器。
 
 后续实施顺序与验收条件见 [docs/ROADMAP.md](docs/ROADMAP.md)。
@@ -100,6 +114,12 @@ python scripts/audit_masked_sinkhorn.py
 python scripts/smoke_context_ot.py --outer-fold 0 --role train --text-backend macbert --batch-size 4 --device cuda --precision fp32 --epsilon 0.05 --iterations 50 --num-batches 3
 python scripts/smoke_context_ot.py --outer-fold 0 --role train --text-backend bge_m3 --batch-size 4 --device cuda --precision amp --epsilon 0.05 --iterations 50 --num-batches 3
 python scripts/smoke_context_ot.py --outer-fold 0 --role train --text-backend bge_m3 --batch-size 4 --device cuda --precision fp32 --epsilon 0.05 --iterations 50 --num-batches 1 --maximum-length-batch
+python scripts/build_train_only_prototypes.py --device cpu
+python scripts/audit_prototype_bank.py --outer-fold 0 --text-backend macbert
+python scripts/audit_prototype_bank.py --outer-fold 0 --text-backend bge_m3
+python scripts/smoke_context_ot_losses.py --outer-fold 0 --role train --text-backend macbert --batch-size 4 --device cuda --precision fp32 --num-batches 3
+python scripts/smoke_context_ot_losses.py --outer-fold 0 --role train --text-backend bge_m3 --batch-size 4 --device cuda --precision amp --num-batches 3
+python scripts/smoke_context_ot_losses.py --outer-fold 0 --role train --text-backend bge_m3 --batch-size 4 --device cuda --precision amp --num-batches 1 --scenario maximum_length
 ```
 
 MacBERT 配置固定在
@@ -134,3 +154,10 @@ tokenizer 均固定 revision
 `configs/ot/`。该阶段只公开 expected transport cost 和独立 entropy
 诊断，不把未经长度偏置分析的 entropy-regularized objective 固定为训练
 loss，也不读取 validation/test context targets。
+
+阶段 5B 的损失配置位于
+`configs/losses/context_ot_three_loss_v1.yaml`，train-only prototype
+配置位于 `configs/prototypes/train_only_group_balanced_v1.yaml`。默认总
+损失为三项非负加权和；OT-only 只允许作为表示塌缩风险明确的消融。原型
+运行产物位于 gitignored 的 `data/cache/prototypes/`，每次 projector
+更新后必须显式重建，最终 checkpoint 也必须重建并冻结一次。

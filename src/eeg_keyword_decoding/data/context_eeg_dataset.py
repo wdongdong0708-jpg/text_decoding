@@ -20,6 +20,10 @@ from eeg_keyword_decoding.text import (
 
 from .eeg_manifest import EEGManifestRecord
 from .keyword_index import MasterKeywordIndex
+from .lexical_indices import (
+    LexicalIdentityIndex,
+    build_lexical_identity_index,
+)
 from .protocol_assets import file_sha256
 from .sample import ContextEEGSample
 from .split_index import SplitRole, SplitViewIndex
@@ -115,6 +119,7 @@ class ContextEEGDataset(Dataset[ContextEEGSample]):
         role: SplitRole,
         subject_index: SubjectIndex,
         keyword_index: MasterKeywordIndex,
+        lexical_identity_index: LexicalIdentityIndex | None = None,
         sentence_labels_path: str | Path,
         word_occurrences_path: str | Path,
         text_backend: str | None = None,
@@ -160,6 +165,14 @@ class ContextEEGDataset(Dataset[ContextEEGSample]):
             )
         self.subject_index = subject_index
         self.keyword_index = keyword_index
+        self.lexical_identity_index = (
+            lexical_identity_index
+            if lexical_identity_index is not None
+            else build_lexical_identity_index(
+                word_occurrences_path,
+                split_index,
+            )
+        )
         self.text_backend = text_backend
         self.include_context_targets = bool(include_context_targets)
         self.context_store_root = (
@@ -356,6 +369,20 @@ class ContextEEGDataset(Dataset[ContextEEGSample]):
             self.keyword_index.indices(keyword_ids),
             dtype=torch.int64,
         )
+        occurrence_ids = tuple(
+            occurrence.word_occurrence_id
+            for occurrence in sentence.occurrences
+        )
+        surface_type_indices = torch.tensor(
+            self.lexical_identity_index.surface_indices(occurrence_ids),
+            dtype=torch.int64,
+        )
+        context_token_group_indices = torch.tensor(
+            self.lexical_identity_index.context_token_group_indices(
+                occurrence_ids
+            ),
+            dtype=torch.int64,
+        )
         context_words: torch.Tensor | None = None
         if self.include_context_targets:
             cached = self._get_context_store().get_sentence(
@@ -395,10 +422,7 @@ class ContextEEGDataset(Dataset[ContextEEGSample]):
             stop_sample=record.stop_sample,
             eeg=eeg,
             eeg_length=record.n_samples,
-            word_occurrence_ids=tuple(
-                occurrence.word_occurrence_id
-                for occurrence in sentence.occurrences
-            ),
+            word_occurrence_ids=occurrence_ids,
             word_positions=torch.tensor(
                 [
                     occurrence.word_position
@@ -419,6 +443,13 @@ class ContextEEGDataset(Dataset[ContextEEGSample]):
             ),
             word_keyword_ids=keyword_ids,
             word_keyword_indices=keyword_indices,
+            context_token_group_indices=context_token_group_indices,
+            surface_type_indices=surface_type_indices,
+            sentence_group_index=(
+                self.lexical_identity_index.sentence_group_index(
+                    assignment.sentence_group_id
+                )
+            ),
             present_keyword_indices=torch.tensor(
                 self._present_keyword_indices[record.text_embedding_idx],
                 dtype=torch.int64,

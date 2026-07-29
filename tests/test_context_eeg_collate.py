@@ -68,6 +68,16 @@ def _sample(
             [0] + [-1] * (word_length - 1),
             dtype=torch.int64,
         ),
+        context_token_group_indices=torch.arange(
+            item * 100,
+            item * 100 + word_length,
+            dtype=torch.int64,
+        ),
+        surface_type_indices=torch.arange(
+            word_length,
+            dtype=torch.int64,
+        ),
+        sentence_group_index=item,
         present_keyword_indices=torch.tensor([0], dtype=torch.int64),
         context_words=context,
         context_backend="backend",
@@ -97,11 +107,14 @@ def test_collate_dynamically_pads_both_sequences_and_preserves_metadata():
     assert torch.count_nonzero(batch.eeg[0, :, 3:]) == 0
     assert torch.count_nonzero(batch.context_words[0, 2:]) == 0
     assert batch.word_keyword_indices[0, 2:].tolist() == [-1, -1]
+    assert batch.context_token_group_indices[0, 2:].tolist() == [-1, -1]
+    assert batch.surface_type_indices[0, 2:].tolist() == [-1, -1]
     assert batch.word_positions[0, 2:].tolist() == [-1, -1]
     assert batch.word_char_spans[0, 2:].tolist() == [[-1, -1], [-1, -1]]
     assert batch.eeg_view_ids == ("view-0", "view-1")
     assert batch.sentence_group_ids == ("group-0", "group-1")
     assert batch.text_embedding_indices.tolist() == [100, 101]
+    assert batch.sentence_group_indices.tolist() == [0, 1]
 
 
 def test_collate_validation_batch_uses_none_not_fake_context_vectors():
@@ -183,6 +196,12 @@ def test_collate_rejects_empty_eeg_and_word_sequences():
                     word_char_spans=torch.empty((0, 2), dtype=torch.int64),
                     word_keyword_ids=(),
                     word_keyword_indices=torch.empty(
+                        (0,), dtype=torch.int64
+                    ),
+                    context_token_group_indices=torch.empty(
+                        (0,), dtype=torch.int64
+                    ),
+                    surface_type_indices=torch.empty(
                         (0,), dtype=torch.int64
                     ),
                     context_words=torch.empty((0, 3)),

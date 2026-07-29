@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from hashlib import sha256
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -40,6 +41,7 @@ class SplitViewIndex:
     outer_folds: tuple[int, ...]
     valid_text_embedding_indices: frozenset[int]
     excluded_text_embedding_indices: frozenset[int]
+    fold_source_sha256: str
 
     def assignment(
         self,
@@ -124,6 +126,14 @@ def _read_csv(path: Path) -> list[dict[str, str]]:
     if not rows:
         raise ValueError(f"CSV is empty: {path}")
     return rows
+
+
+def _file_sha256(path: Path) -> str:
+    digest = sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _load_fold_assignments(
@@ -222,8 +232,9 @@ def build_split_view_index(
 
     manifest_records = tuple(load_eeg_manifest(manifest_path))
     validate_eeg_manifest(list(manifest_records), check_files=False)
+    fold_file = Path(fold_path)
     assignments, outer_folds, valid_indices = _load_fold_assignments(
-        Path(fold_path)
+        fold_file
     )
     records_by_sentence: dict[int, list[EEGManifestRecord]] = defaultdict(list)
     for record in manifest_records:
@@ -271,6 +282,7 @@ def build_split_view_index(
         outer_folds=outer_folds,
         valid_text_embedding_indices=valid_indices,
         excluded_text_embedding_indices=excluded_indices,
+        fold_source_sha256=_file_sha256(fold_file),
     )
 
     for outer_fold in outer_folds:
