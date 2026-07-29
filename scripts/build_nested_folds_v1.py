@@ -1,0 +1,46 @@
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = PROJECT_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
+
+from eeg_keyword_decoding.data import write_nested_fold_artifacts
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Build grouped outer-5-fold and inner-validation protocol."
+    )
+    parser.add_argument(
+        "--protocol-dir",
+        type=Path,
+        default=PROJECT_ROOT / "data" / "protocols" / "littleprince_hf_v1",
+    )
+    parser.add_argument("--seed", type=int, default=42)
+    args = parser.parse_args()
+    protocol_dir = args.protocol_dir
+    summary = write_nested_fold_artifacts(
+        sentence_labels_path=(
+            protocol_dir / "littleprince_sentence_keyword_labels_v1.csv"
+        ),
+        lexicon_path=protocol_dir / "littleprince_hf_lexicon_v1.csv",
+        fold_output_path=protocol_dir / "littleprince_sentence_folds_v1.csv",
+        eligibility_output_path=(
+            protocol_dir / "littleprince_keyword_fold_eligibility_v1.csv"
+        ),
+        provenance_path=protocol_dir / "FOLDS_PROVENANCE.json",
+        seed=args.seed,
+    )
+    print(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()
+

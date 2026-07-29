@@ -1,0 +1,51 @@
+{
+  "algorithm": "deterministic greedy grouped multilabel stratification over sentence DF and normalized-context-group DF; 32 fold-order restarts",
+  "assignment_algorithm_version": "grouped_multilabel_v2",
+  "builder_source_sha256": "8d40ef42bed5d91bbafa7831f44423931790f3b2f4360966f08188172e24e0f7",
+  "eligibility_output_sha256": "d827af5c49caa80960b53ab241f220e8059c2c46558c6347212cd718cb11ecf2",
+  "fold_output_sha256": "0c47eb0a516560935a55f5d9057c9c534965fc89d54e7513e25fe721ec9892b1",
+  "inner_splits": 8,
+  "inner_validation_fold": "outer_fold modulo 8",
+  "largest_sentence_group": 21,
+  "objective_weights": {
+    "normalized_context_group_label": 0.9,
+    "sentence_count": 0.25,
+    "sentence_occurrence_label": 0.1
+  },
+  "outer_splits": 5,
+  "python_version": "3.10.20",
+  "repeated_sentence_groups": 98,
+  "role_counts": {
+    "0": {
+      "test": 561,
+      "train": 1967,
+      "validation": 281
+    },
+    "1": {
+      "test": 562,
+      "train": 1967,
+      "validation": 280
+    },
+    "2": {
+      "test": 562,
+      "train": 1966,
+      "validation": 281
+    },
+    "3": {
+      "test": 562,
+      "train": 1966,
+      "validation": 281
+    },
+    "4": {
+      "test": 562,
+      "train": 1966,
+      "validation": 281
+    }
+  },
+  "schema_version": "littleprince_context_cv_v1",
+  "seed": 42,
+  "sentence_groups": 2575,
+  "source_lexicon_sha256": "2c57638074c93ace6f74c001c636b18cb0370d112f1c7f3505d8d478af20032a",
+  "source_sentence_labels_sha256": "9dac8d5c8cbce305787e65e2c4f274ec91d48202559e8772bbbce4e5d01eaac6",
+  "valid_sentences": 2809
+}

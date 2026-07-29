@@ -1,0 +1,11 @@
+{
+  "upstream_repository_path": "C:/Users/Administrator/Documents/阅读代码/language_decoding_text_decoding_5396c4c",
+  "upstream_commit": "5396c4ca8b9620cfdfba6a680e084fe003c58832",
+  "files": {
+    "littleprince_pl_all_clean_manifest.csv": {
+      "source_relative_path": "data/manifests/littleprince_pl_all_clean_manifest.csv",
+      "source_sha256": "7be6b062b9299d13763baf828a144e2422afb428b0582bfa51d1a90b7e7657c3"
+    }
+  }
+}
+

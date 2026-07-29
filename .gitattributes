@@ -1,0 +1,4 @@
+*.csv -text
+*.npy -text
+*.npz -text
+

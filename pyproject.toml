@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eeg-keyword-decoding"
+version = "0.1.0"
+description = "Contextual keyword decoding from variable-length Chinese EEG sequences."
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.26",
+  "PyYAML>=6.0",
+  "torch>=2.1",
+]
+
+[project.optional-dependencies]
+text = [
+  "huggingface-hub>=0.30",
+  "safetensors>=0.5",
+  "tokenizers>=0.22",
+  "transformers>=5.9,<6",
+]
+evaluation = [
+  "scikit-learn>=1.4",
+  "scipy>=1.11",
+]
+dev = [
+  "pytest>=8",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
