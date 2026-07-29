@@ -224,6 +224,9 @@
 
 ## 阶段 6：逐 fold 训练编排、checkpoint 与 prototype refresh
 
+状态：阶段 6A（单 fold 编排、无文本 inner-validation 与可恢复
+checkpoint）已完成；正式 5 折长训练尚未启动。
+
 - 每个 outer fold 只在 inner-train 优化参数。
 - inner-validation 只用于早停、checkpoint、损失权重、OT 参数和全局阈值。
 - 使用阶段 5B 已冻结的 builder 按明确周期刷新 detached prototype，
@@ -232,6 +235,56 @@
 - 固定随机种子、配置、数据哈希、模型 revision 和 checkpoint 元数据。
 
 验收：测试推理函数只接受 EEG 与冻结 train-only prototype；代码层面无法读取测试上下文向量。
+
+### 阶段 6A 完成记录
+
+- `FoldTrainer` 的数据 API 只接收一个 outer fold 的 train 与 validation
+  Dataset/DataLoader；初始化时检查 role、fold、context-target 开关、
+  `text_embedding_idx` 和 `sentence_group_id` 隔离。runner 只实例化
+  train/validation，未创建 outer-test Dataset。
+- 每个 epoch 开始前用当前 projector 和唯一的 inner-train 文本刷新
+  prototype；optimizer 更新后、validation 前再次刷新。refresh 强制
+  projector eval + inference mode，结束后恢复原模式，bank 为 FP32、
+  L2-normalized、detached 的固定 247×256 张量。
+- projector state 与 bank 各有 SHA256；validation 前强制二者匹配。
+  checkpoint 同时保存相匹配的 projector 和 bank，旧 bank 在 projector
+  更新后会被拒绝。
+- 无文本 scorer 的唯一模型输入为 EEG encoder sequence/mask 和
+  train-only bank。它在有效时间点计算
+  `τ(logsumexp(cos/τ) - log(T))`，显式 mask padding 与 unavailable
+  prototype；不接收词数、context vectors、validation labels、Sinkhorn
+  或 transport plan。
+- validation 同时保留固定 247 列，按 EEG view、`text_embedding_idx`
+  occurrence、`sentence_group_id` context group 依次等权平均；标签冲突
+  立即失败。逐词 AP 使用连续 score，无正例/负例返回 NaN 和原因，
+  macro 只平均冻结资格且有效的词。
+- `best.pt` 只由
+  `validation/core/context_group/macro_auprc` 更新；同分保留较早 epoch，
+  Main/Extended 与 view/occurrence 结果只作诊断。
+- AdamW 显式区分 EEG encoder、text projection、MacBERT scalar mix，
+  bias/一维 norm/scalar-mix 不做 weight decay；所有可训练参数恰好属于
+  一个 group。AMP 在 unscale 后审计非有限梯度并裁剪，scheduler 只按
+  optimizer step 前进，最后不足 accumulation 的 group 按实际数量归一。
+- checkpoint schema 保存模型、scalar mix、optimizer、scheduler、
+  GradScaler、prototype、配置与数据资产哈希、subject/keyword mapping、
+  early-stopping 状态、Python/NumPy/CPU/CUDA/DataLoader RNG、环境版本、
+  Git commit/dirty 状态和创建时间；加载时验证 fold/backend/channel/
+  mapping/assets/config 及 prototype-projector 一致性。
+- synthetic tiny overfit（seed 42，25 steps）首 5 步平均 loss
+  `1.23571`，末 5 步 `0.13460`，prototype accuracy `0.5 → 1.0`；
+  padding loss 误差、resume 下一步 loss 与参数误差均为 0。
+- fold 0 BGE-M3 AMP 以 10 batch/epoch 完成 2 epoch 和完整
+  inner-validation；中断恢复与连续参考运行的最终 projector hash、
+  prototype bank hash、主指标和 loss 完全相同。MacBERT AMP 同样完成
+  2 epoch。两者 full validation 均为 2,086 view、281 occurrence、
+  265 context group，Core 33/33 有效。
+- RTX 5060 Ti 上 BGE-M3 AMP 的短程训练峰值约 179 MiB，MacBERT AMP
+  两轮约 170/181 MiB；1,297 点最大 EEG 长度 batch 的三项损失 AMP
+  前后向有限。Windows `num_workers=2` 的两次同 seed 运行得到相同
+  projector/bank hash、loss 和 validation 指标。
+- 阶段 6A 不包含正式 5 折长训练或任何 outer-test 指标，所有 smoke
+  输出均标记 `smoke_run=true` 与
+  `not_for_scientific_reporting=true`。
 
 ## 阶段 7：固定词表评估与消融
 

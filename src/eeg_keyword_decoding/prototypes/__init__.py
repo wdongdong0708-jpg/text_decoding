@@ -5,7 +5,12 @@ from .builder import (
     aggregate_sentence_group_balanced,
     aggregate_within_sentence_keyword,
 )
-from .provenance import file_sha256, module_state_sha256
+from .provenance import (
+    file_sha256,
+    module_state_sha256,
+    prototype_bank_sha256,
+    state_dict_sha256,
+)
 from .schema import (
     MASTER_KEYWORD_COUNT,
     PROTOTYPE_BANK_SCHEMA_VERSION,
@@ -27,5 +32,7 @@ __all__ = [
     "file_sha256",
     "load_prototype_bank",
     "module_state_sha256",
+    "prototype_bank_sha256",
+    "state_dict_sha256",
     "save_prototype_bank",
 ]

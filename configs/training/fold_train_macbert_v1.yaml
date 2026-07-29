@@ -1,0 +1,41 @@
+schema_version: fold_training_v1
+smoke_run: false
+not_for_scientific_reporting: false
+text_backend: macbert
+epochs: 100
+batch_size: 8
+num_workers: 2
+precision: amp
+amp_initial_scale: 1024.0
+max_train_batches: null
+max_validation_batches: null
+gradient_clip_norm: 1.0
+gradient_accumulation_steps: 1
+validation_scorer:
+  type: masked_log_mean_exp
+  temperature: 0.07
+prototype_refresh:
+  at_epoch_start: true
+  after_epoch_before_validation: true
+  min_train_group_df: 10
+  group_balanced: true
+  detached: true
+optimizer:
+  name: adamw
+  eeg_lr: 3.0e-4
+  text_projection_lr: 1.0e-4
+  scalar_mix_lr: 1.0e-4
+  weight_decay: 1.0e-2
+scheduler:
+  name: linear_warmup_cosine
+  warmup_ratio: 0.1
+early_stopping:
+  metric: validation/core/context_group/macro_auprc
+  mode: max
+  patience: 10
+  min_delta: 0.001
+reproducibility:
+  seed: 42
+  deterministic_algorithms: true
+  cudnn_benchmark: false
+output_root: outputs/training

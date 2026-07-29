@@ -20,7 +20,7 @@
 
 ## 当前阶段
 
-阶段 0–4 及阶段 5A/5B 已完成：
+阶段 0–4、阶段 5A/5B 及阶段 6A 已完成：
 
 - 干净的 `src/` 包结构；
 - 冻结的《小王子》高频词协议资产；
@@ -65,12 +65,23 @@
   cache/projector provenance 硬校验；
 - MacBERT/BGE-M3、FP32/AMP、无 Master 词、重复词、多受试者同句 view、
   subject adapter 开关和最大长度真实三项损失前后向 smoke。
+- 只接收 inner-train/inner-validation 的单 fold trainer，API 中不存在
+  test Dataset/DataLoader；
+- 每 epoch 训练前和验证前各刷新一次、与当前 projector SHA256 绑定的
+  detached train-only prototype bank；
+- validation 只用 EEG、EEG mask、subject index 和 train-only prototype，
+  使用减去 `log(T)` 的 masked log-mean-exp 得到固定 247 列 score；
+- EEG-view → sentence-occurrence → normalized-context-group 三级等权聚合，
+  逐词 continuous-score AUPRC 及显式 NaN 原因；
+- 唯一 early-stopping 指标
+  `validation/core/context_group/macro_auprc`；
+- 包含模型、prototype、optimizer/scheduler/GradScaler、RNG、DataLoader
+  generator、配置和数据资产哈希的 `last.pt`/`best.pt`；
+- synthetic tiny overfit、checkpoint resume、Windows multi-worker
+  可重复性，以及 BGE-M3/MacBERT 的 fold 0 AMP full-validation smoke。
 
-尚未实现：
-
-- 逐 fold epoch 训练、checkpoint、周期 prototype refresh 和
-  inner-validation 选择；
-- 固定词表评估器。
+尚未启动或实现的是正式外层 5 折长训练、OOF 测试评估、bootstrap 和
+阶段 7 消融；阶段 6A 产物均明确标记为不可用于科学报告。
 
 后续实施顺序与验收条件见 [docs/ROADMAP.md](docs/ROADMAP.md)。
 
@@ -120,6 +131,11 @@ python scripts/audit_prototype_bank.py --outer-fold 0 --text-backend bge_m3
 python scripts/smoke_context_ot_losses.py --outer-fold 0 --role train --text-backend macbert --batch-size 4 --device cuda --precision fp32 --num-batches 3
 python scripts/smoke_context_ot_losses.py --outer-fold 0 --role train --text-backend bge_m3 --batch-size 4 --device cuda --precision amp --num-batches 3
 python scripts/smoke_context_ot_losses.py --outer-fold 0 --role train --text-backend bge_m3 --batch-size 4 --device cuda --precision amp --num-batches 1 --scenario maximum_length
+python scripts/synthetic_tiny_overfit.py --steps 25 --seed 42
+python scripts/smoke_fold_training.py --outer-fold 0 --text-backend bge_m3 --epochs 2 --max-train-batches 10 --batch-size 8 --precision amp --device cuda
+python scripts/smoke_fold_training.py --outer-fold 0 --text-backend macbert --epochs 2 --max-train-batches 10 --batch-size 8 --precision amp --device cuda
+python scripts/inspect_checkpoint.py outputs/training/<backend>/outer_fold_0/<run_id>/checkpoints/last.pt
+python scripts/validate_checkpoint.py outputs/training/<backend>/outer_fold_0/<run_id>/checkpoints/last.pt
 ```
 
 MacBERT 配置固定在
@@ -161,3 +177,10 @@ loss，也不读取 validation/test context targets。
 损失为三项非负加权和；OT-only 只允许作为表示塌缩风险明确的消融。原型
 运行产物位于 gitignored 的 `data/cache/prototypes/`，每次 projector
 更新后必须显式重建，最终 checkpoint 也必须重建并冻结一次。
+
+阶段 6A 的训练配置位于 `configs/training/`。每轮固定执行
+`refresh(train-only) → train → refresh(updated projector) → text-free
+validation → checkpoint → early stopping`。输出写入 gitignored 的
+`outputs/training/<backend>/outer_fold_<k>/<unique_run_id>/`，不会静默覆盖
+旧运行。训练入口不创建 outer-test Dataset；正式 outer-test 推理属于后续
+独立命令。
