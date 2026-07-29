@@ -1,3 +1,9 @@
+from .collate import ContextEEGCollator, collate_context_eeg_samples
+from .context_eeg_dataset import (
+    ContextCacheFingerprint,
+    ContextEEGDataset,
+    ContextTargetAccessError,
+)
 from .eeg_manifest import (
     EEGManifestRecord,
     group_records_by_sentence,
@@ -11,7 +17,17 @@ from .folds import (
     load_sentence_examples,
     write_nested_fold_artifacts,
 )
+from .keyword_index import MasterKeywordIndex, build_master_keyword_index
 from .protocol_assets import ProtocolAuditError, audit_littleprince_hf_v1
+from .sample import ContextEEGBatch, ContextEEGSample
+from .split_index import (
+    SPLIT_ROLES,
+    SentenceFoldAssignment,
+    SplitRole,
+    SplitViewIndex,
+    build_split_view_index,
+)
+from .subject_index import SubjectIndex, build_subject_index
 from .word_occurrences import (
     WordOccurrence,
     align_segmented_words,
@@ -22,14 +38,30 @@ from .word_occurrences import (
 )
 
 __all__ = [
+    "ContextCacheFingerprint",
+    "ContextEEGBatch",
+    "ContextEEGCollator",
+    "ContextEEGDataset",
+    "ContextEEGSample",
+    "ContextTargetAccessError",
     "EEGManifestRecord",
+    "MasterKeywordIndex",
     "ProtocolAuditError",
+    "SPLIT_ROLES",
+    "SentenceFoldAssignment",
+    "SplitRole",
+    "SplitViewIndex",
+    "SubjectIndex",
     "WordOccurrence",
     "assign_groups_multilabel",
     "align_segmented_words",
     "audit_littleprince_hf_v1",
+    "build_master_keyword_index",
     "build_nested_fold_rows",
+    "build_split_view_index",
+    "build_subject_index",
     "build_word_occurrences",
+    "collate_context_eeg_samples",
     "group_sentence_examples",
     "group_records_by_sentence",
     "load_sentence_examples",
@@ -40,4 +72,3 @@ __all__ = [
     "write_nested_fold_artifacts",
     "write_word_occurrence_artifacts",
 ]
-

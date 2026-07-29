@@ -89,12 +89,50 @@
 
 ## 阶段 3：变长双序列数据管线
 
+状态：已完成。
+
 - Dataset 按 `text_embedding_idx` 联结 EEG、fold role、词 occurrence 和上下文词缓存。
 - Collate 输出 `eeg/eeg_mask/context_words/word_mask/keyword_ids`。
 - 一个短句的全部受试者 EEG view 只共享文本缓存，不重复进入 prototype 统计。
 - 空序列在数据构建时被排除，不在训练循环中临时跳过。
 
 验收：不同 EEG 长度和词数可同批训练；padding 改变不影响有效区域；fold role 无交叉。
+
+### 阶段 3 完成记录
+
+- 冻结 EEG manifest 共 21,110 行；28 个排除短句对应 208 个 view，
+  2,809 个有效短句对应 20,902 个 view，每句 6–8 个 view。
+- `SplitViewIndex` 不读取 EEG 数据，按 `text_embedding_idx` 联结每折
+  `train/validation/test`，强制同一规范化文本组 role 原子性并验证每个
+  有效短句恰好 outer-test 一次。
+- fold 0–4 的 train view 数依次为
+  14,650/14,630/14,624/14,641/14,620；validation 为
+  2,086/2,090/2,093/2,076/2,098；test 为
+  4,166/4,182/4,185/4,185/4,184。
+- 全局 subject index 固定为 `sub-01`–`sub-08 -> 0`–`7`，不随 fold
+  重排。Master keyword index 按冻结 rank 建立 247 维共享索引空间，
+  Core/Main/Extended 大小为 33/64/100，非 Master occurrence 为 `-1`。
+- `ContextEEGDataset` 的单位是一个句子 occurrence 的一个受试者 EEG
+  view；EEG 只在 `__getitem__` 中按窗口懒读，不标准化、不裁剪、
+  不重采样、不增强。
+- train 可通过同一个 `ContextWordStore` 接口读取 MacBERT
+  `[N,4,768]` 或 BGE-M3 `[N,1024]`，统一恢复为 `float32`。
+  缓存数组 SHA256、metadata SHA256 和冻结 occurrence 顺序均在
+  Dataset 初始化时验证。
+- validation/test 无法绑定 context store，也无法请求
+  `include_context_targets=True`；其 batch 中 `context_words=None`，
+  不使用全零伪目标。
+- Collate 只 padding 当前 batch 的 EEG 时间轴与词轴，生成
+  `eeg_mask/word_mask` 和严格一致的 lengths；EEG、词位置、关键词索引
+  与字符串元数据保持输入顺序。
+- 200 个本地 BrainVision recording 全部为 128 通道、250 Hz；全部
+  manifest 窗口在文件边界内。真实数据的 MacBERT/BGE-M3、validation、
+  test 各完成 3 batch smoke test。
+- Dataset pickle 时主动丢弃 ContextWordStore memmap 和 BrainVision
+  reader 缓存；Windows spawn worker 各自按需重开只读资源，
+  `num_workers=2` 真实数据 smoke test通过。
+
+完整数据契约见 [DATA_PIPELINE.md](DATA_PIPELINE.md)。
 
 ## 阶段 4：EEG sequence encoder
 

@@ -20,7 +20,7 @@
 
 ## 当前阶段
 
-阶段 0–2B 已完成：
+阶段 0–3 已完成：
 
 - 干净的 `src/` 包结构；
 - 冻结的《小王子》高频词协议资产；
@@ -35,6 +35,12 @@
 - 基于完整短句的 MacBERT 最后四层上下文词缓存；
 - 基于完整短句的 BGE-M3 ColBERT multi-vector 上下文词缓存；
 - fast-tokenizer offset、特殊 token 隔离、缓存哈希和只读恢复审计。
+- 冻结 fold 到 20,902 个有效 EEG view 的只读联结索引；
+- 全局稳定的 8 被试索引与 247 词 Master 整数索引；
+- 同时支持 MacBERT/BGE-M3 的变长 EEG—上下文词 Dataset；
+- batch 内动态双序列 padding、bool mask 与长度契约；
+- validation/test 上下文目标访问的代码级拒绝；
+- Windows `num_workers=2` 下按 worker 懒建只读 memmap/cache reader。
 
 尚未实现：
 
@@ -70,6 +76,11 @@ python scripts/audit_context_word_cache.py --cache-dir data/cache/context_words/
 python scripts/cache_bge_m3_context_words.py --smoke-only
 python scripts/cache_bge_m3_context_words.py
 python scripts/audit_context_word_cache.py --cache-dir data/cache/context_words/bge_m3_colbert_v1 --compare-cache-dir data/cache/context_words/macbert_v1
+python scripts/audit_context_eeg_dataset.py
+python scripts/smoke_context_eeg_dataloader.py --outer-fold 0 --role train --text-backend macbert --batch-size 4 --num-workers 0 --num-batches 3
+python scripts/smoke_context_eeg_dataloader.py --outer-fold 0 --role train --text-backend bge_m3 --batch-size 4 --num-workers 2 --num-batches 3
+python scripts/smoke_context_eeg_dataloader.py --outer-fold 0 --role validation --text-backend bge_m3 --batch-size 4 --num-workers 0 --num-batches 3
+python scripts/smoke_context_eeg_dataloader.py --outer-fold 0 --role test --text-backend bge_m3 --batch-size 4 --num-workers 0 --num-batches 3
 ```
 
 MacBERT 配置固定在
@@ -89,3 +100,6 @@ tokenizer 均固定 revision
 
 项目不保存原始 EEG 二进制文件或大型文本模型缓存到 Git。EEG manifest
 中的路径继续指向本地 ChineseEEG-2 数据集。
+
+阶段 3 的 Sample/Batch 字段、访问边界、padding 约定和 worker 资源
+生命周期见 [docs/DATA_PIPELINE.md](docs/DATA_PIPELINE.md)。
