@@ -1,0 +1,11 @@
+schema_version: masked_balanced_sinkhorn_v1
+type: balanced
+cost: cosine
+epsilon: 0.05
+iterations: 50
+marginal_audit_tolerance: 1.0e-3
+internal_dtype: float32
+time_marginal: uniform
+word_marginal: uniform
+position_cost: false
+order_constraint: false

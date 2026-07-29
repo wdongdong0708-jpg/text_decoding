@@ -1,0 +1,19 @@
+schema_version: context_text_projection_v1
+backend: macbert
+cache_metadata_path: data/cache/context_words/macbert_v1/metadata.json
+input_dim: 768
+output_dim: 256
+normalization: layer_norm
+projection: linear
+
+scalar_mix:
+  enabled: true
+  layer_count: 4
+  initialization: zeros
+
+expected_cache:
+  model_id: hfl/chinese-macbert-base
+  resolved_revision: a986e004d2a7f2a1c2f5a3edef4e20604a974ed1
+  context_vectors_sha256: ca1c3b5af76aa38300de668ea017725de71b31f432bcafb55b47c8b48f53c117
+  storage_dtype: float32
+  layer_indices: [9, 10, 11, 12]

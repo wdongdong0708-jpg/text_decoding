@@ -165,6 +165,9 @@
 
 ## 阶段 5：Sinkhorn OT 与三项损失
 
+状态：阶段 5A（文本投影 + masked balanced Sinkhorn OT）已完成；三项损失
+与 train-only prototype builder 待下一阶段实现。
+
 - masked、balanced、log-domain、内部 FP32 的 Sinkhorn。
 - 均匀有效时间边缘与均匀有效词边缘，cosine cost。
 - 实现 `OT-context + λ_token context-token + λ_lex prototype`。
@@ -172,6 +175,30 @@
 - 第一版不加入关键词 BCE 主损失、词序代价或顺序损失。
 
 验收：无效位置 transport mass 为零；行列边缘误差达标；极端相似度无 NaN；梯度可回传。
+
+### 阶段 5A 完成记录
+
+- MacBERT 投影从缓存 metadata 验证 `[word, encoder_layer, hidden]` 轴、
+  `[9, 10, 11, 12]` 层顺序和 768 hidden size；全局共享的四层 logits
+  以 0 初始化，经 softmax 得到均匀 scalar mix，再使用 LayerNorm 和
+  `Linear(768, 256)`。
+- BGE-M3 投影验证缓存为 ColBERT 上下文词向量及 1,024 hidden size，
+  使用 LayerNorm 和 `Linear(1024, 256)`；两种 backend 对下游公开相同
+  `[B, N, 256]` sequence/mask 契约。
+- cosine cost 在最后一维 L2 normalize 后计算 `1 - cosine`，显式保留
+  valid pair mask；不包含位置代价、对角偏好或长度修正。
+- Sinkhorn 对每个样本使用有效时间上的 `1/T` 和有效词上的 `1/N`
+  均匀边缘，在 log domain 固定迭代；迭代、计划、边缘、expected
+  transport cost 和 entropy 诊断均为 FP32。
+- transport pooling 使用每个词的实际列质量归一化
+  `sum_t(P[t,j] h[t]) / sum_t(P[t,j])`，padding 词严格清零。
+- 单元测试覆盖投影、cost、边缘、数值稳定、padding 不变性、等变性、
+  梯度和 pooling。真实 inner-train MacBERT/BGE-M3 的 FP32/AMP、
+  subject adapter 开关及 325 帧最大 EEG 输出 batch 均完成前后向
+  smoke；validation/test context targets 未被访问。
+- 当前只把 expected transport cost 作为公开 cost，并独立报告 entropy；
+  三项最终训练 loss、prototype、partial/unbalanced/monotonic OT、位置
+  cost 和顺序约束均未在本阶段引入。
 
 ## 阶段 6：逐 fold 训练与 train-only prototype
 

@@ -1,0 +1,19 @@
+schema_version: context_text_projection_v1
+backend: bge_m3
+cache_metadata_path: data/cache/context_words/bge_m3_colbert_v1/metadata.json
+input_dim: 1024
+output_dim: 256
+normalization: layer_norm
+projection: linear
+
+scalar_mix:
+  enabled: false
+  layer_count: 0
+  initialization: zeros
+
+expected_cache:
+  model_id: BAAI/bge-m3
+  resolved_revision: 5617a9f61b028005a4858fdac845db406aefb181
+  context_vectors_sha256: f8b6f93e7a7fca7716a2276c1d187359c50b9239968e09869f0ddc6219c0704b
+  storage_dtype: float16
+  layer_indices: []

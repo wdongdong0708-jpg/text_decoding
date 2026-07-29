@@ -20,7 +20,7 @@
 
 ## 当前阶段
 
-阶段 0–4 已完成：
+阶段 0–4 及阶段 5A 已完成：
 
 - 干净的 `src/` 包结构；
 - 冻结的《小王子》高频词协议资产；
@@ -45,10 +45,17 @@
 - 精确 stride 4 的 mask/length 传播与 padding 严格清零；
 - 逐时间点 LayerNorm 和可配置的 subject FiLM adapter；
 - FP32、CUDA AMP、最大真实长度及多 worker 真实 batch smoke。
+- backend 显式、metadata 校验的 MacBERT/BGE-M3 上下文词投影；
+- MacBERT 共享可学习四层 scalar mix，BGE-M3 线性投影基线；
+- masked cosine cost 与 balanced、log-domain、内部 FP32 的 Sinkhorn；
+- 均匀有效时间/词边缘、严格零 padding transport mass 和边缘审计；
+- 按实际列质量归一化的词条件 EEG transport pooling；
+- 两种文本 backend 的 FP32/AMP、subject adapter 开关和最大长度真实
+  inner-train batch 前后向 smoke。
 
 尚未实现：
 
-- Sinkhorn OT 与训练损失；
+- 三项训练损失与 train-only prototype builder；
 - 固定词表评估器。
 
 后续实施顺序与验收条件见 [docs/ROADMAP.md](docs/ROADMAP.md)。
@@ -89,6 +96,10 @@ python scripts/smoke_eeg_sequence_encoder.py --outer-fold 0 --role train --batch
 python scripts/smoke_eeg_sequence_encoder.py --outer-fold 0 --role train --batch-size 16 --num-workers 0 --device cuda --precision amp --num-batches 3
 python scripts/smoke_eeg_sequence_encoder.py --outer-fold 0 --role train --batch-size 8 --num-workers 2 --device cuda --precision fp32 --num-batches 1 --config configs/models/eeg_sequence_conv_no_subject_v1.yaml
 python scripts/smoke_eeg_sequence_encoder.py --outer-fold 0 --role train --batch-size 8 --num-workers 0 --device cuda --precision fp32 --num-batches 1 --maximum-length-batch
+python scripts/audit_masked_sinkhorn.py
+python scripts/smoke_context_ot.py --outer-fold 0 --role train --text-backend macbert --batch-size 4 --device cuda --precision fp32 --epsilon 0.05 --iterations 50 --num-batches 3
+python scripts/smoke_context_ot.py --outer-fold 0 --role train --text-backend bge_m3 --batch-size 4 --device cuda --precision amp --epsilon 0.05 --iterations 50 --num-batches 3
+python scripts/smoke_context_ot.py --outer-fold 0 --role train --text-backend bge_m3 --batch-size 4 --device cuda --precision fp32 --epsilon 0.05 --iterations 50 --num-batches 1 --maximum-length-batch
 ```
 
 MacBERT 配置固定在
@@ -116,3 +127,10 @@ tokenizer 均固定 revision
 `configs/models/eeg_sequence_conv_v1.yaml`，无 subject adapter 消融配置位于
 `configs/models/eeg_sequence_conv_no_subject_v1.yaml`。encoder 只输出
 `[B, T', 256]` EEG 时间序列、bool mask 和精确长度，不执行整句池化。
+
+阶段 5A 的文本投影配置位于
+`configs/text/macbert_projection_v1.yaml` 和
+`configs/text/bge_m3_projection_v1.yaml`；OT 与 pooling 配置位于
+`configs/ot/`。该阶段只公开 expected transport cost 和独立 entropy
+诊断，不把未经长度偏置分析的 entropy-regularized objective 固定为训练
+loss，也不读取 validation/test context targets。
