@@ -26,7 +26,7 @@
 
 ## 阶段 2：上下文词表示缓存
 
-状态：下一步。
+状态：2A MacBERT baseline 已完成；2B BGE-M3 为下一步。
 
 1. 定义连续数组缓存契约：词向量、句子 offsets、词表面形式、字符跨度、keyword ID、模型元数据。
 2. 先实现 MacBERT baseline：缓存最后 4 层 `[total_words, 4, 768]`，训练时学习 scalar mix。
@@ -35,6 +35,28 @@
 5. 缓存元数据记录模型和 tokenizer 的精确 revision、源标签 SHA256、聚合规则、dtype 和输出哈希。
 
 验收：MacBERT 与 BGE-M3 各完成小样本人工核对及全量 offset 审计；缓存只由冻结文本生成，不包含 split 或 EEG 信息。
+
+### 阶段 2A 完成记录
+
+- 模型和 fast tokenizer：`hfl/chinese-macbert-base`，二者均固定 revision
+  `a986e004d2a7f2a1c2f5a3edef4e20604a974ed1`。
+- 输入始终为完整规范化短句；没有逐词孤立编码。
+- 缓存最后四个 encoder hidden states，即第 9、10、11、12 层。
+- subtoken 聚合规则为字符重叠长度加权平均；`[CLS]`、`[SEP]`、
+  padding 和不属于冻结词跨度的标点不进入词向量。
+- `ContextWordStore` 使用连续 `.npy` 数组保存词向量、句子索引和
+  offsets、occurrence ID、词位置、表面形式、字符跨度与 keyword ID。
+- 全量结果为 2,809 个短句、14,034 个词，词向量
+  `[14034, 4, 768] float32`。
+- 独立全量 offset 审计失败数为 0，特殊 token 重叠数为 0，同一
+  tokenizer token 跨冻结词共享数为 0，最大输入长度为 28 tokens。
+- 人工核对覆盖普通标点、多字词、重复词、书名号、引号/未知标点及
+  最长短句；缓存 reader 可按 `text_embedding_idx` 恢复
+  `[n_word, 4, 768]`。
+- metadata 精确记录模型/tokenizer revision、输入与配置 SHA256、
+  聚合规则、运行库版本、dtype、shape、文件大小及每个数组 SHA256。
+- 缓存目录 `data/cache/context_words/macbert_v1/` 不包含 fold、split
+  或 EEG 信息，并由 `.gitignore` 排除。
 
 ## 阶段 3：变长双序列数据管线
 

@@ -1,0 +1,33 @@
+schema_version: macbert_context_cache_v1
+
+model:
+  model_id: hfl/chinese-macbert-base
+  revision: a986e004d2a7f2a1c2f5a3edef4e20604a974ed1
+  tokenizer_revision: a986e004d2a7f2a1c2f5a3edef4e20604a974ed1
+  hidden_state_layer_indices: [9, 10, 11, 12]
+  max_length: 512
+  use_fast: true
+  use_safetensors: false
+
+inference:
+  device: auto
+  batch_size: 32
+  compute_dtype: float32
+  storage_dtype: float32
+  local_files_only: false
+
+aggregation:
+  rule: character_overlap_length_weighted_mean
+  offset_unit: normalized Unicode code-point index; end-exclusive
+  special_token_policy: exclude and fail if a special token overlaps a word
+  padding_token_policy: exclude through attention_mask
+
+inputs:
+  sentence_labels: data/protocols/littleprince_hf_v1/littleprince_sentence_keyword_labels_v1.csv
+  word_occurrences: data/protocols/littleprince_hf_v1/littleprince_word_occurrences_v1.csv
+
+output:
+  cache_dir: data/cache/context_words/macbert_v1
+
+audit:
+  representative_text_embedding_indices: [17, 18, 143]
