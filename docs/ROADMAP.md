@@ -136,12 +136,32 @@
 
 ## 阶段 4：EEG sequence encoder
 
+状态：已完成。
+
 - 从旧 `SimpleConvTimeAgg` 的卷积干线提炼可复用结构，但输出 `[B, T', 256]` 而非整句向量。
 - 默认时间 stride 4，控制 16 GB 显存占用。
-- 用 GroupNorm 或 LayerNorm 替代会受 padding 比例影响的 BatchNorm。
+- 使用逐时间点 LayerNorm，避免 BatchNorm/普通 GroupNorm 跨 padding 时间位置统计。
 - 保留 duration-only、mean-pooling 与旧整句向量基线的独立入口。
 
 验收：mask 下采样正确；padding 不改变有效输出；无 NaN；正反向 smoke test 通过。
+
+完成记录：
+
+- 实现 1×1 shared channel projection、可选 subject FiLM、stride-2 temporal
+  stem、四个 dilation 为 `[1, 2, 4, 8]` 的残差时间块、第二个 stride-2
+  downsample 和 256 维逐时间点输出投影。
+- 输入为 `[B, C, T]` EEG、连续前缀 bool mask 和全局 subject index；输出为
+  `[B, T', 256]`、`[B, T']` bool mask 和 `[B]` 精确长度。
+- 两次 same-padding stride-2 卷积给出
+  `T' = ceil(ceil(T / 2) / 2) = ceil(T / 4)`；真实最大长度 1,297
+  对应 325 帧。
+- 每个卷积、归一化、激活、dropout 和残差步骤后重新清零无效位置；
+  拒绝非连续 mask、空序列、过短输入和越界 subject index。
+- 默认配置启用 8-subject FiLM；同时冻结无 subject adapter 的消融配置。
+- 单元测试覆盖 padding/额外右 padding/无效值/批排列不变性、梯度、
+  AMP、state-dict round trip 和真实 inner-train batch。
+- RTX 5060 Ti 16 GB 上 batch 8 FP32、batch 16 AMP、最大长度 batch 和
+  `num_workers=2` 真实数据 smoke 均通过。
 
 ## 阶段 5：Sinkhorn OT 与三项损失
 

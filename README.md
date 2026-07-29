@@ -20,7 +20,7 @@
 
 ## 当前阶段
 
-阶段 0–3 已完成：
+阶段 0–4 已完成：
 
 - 干净的 `src/` 包结构；
 - 冻结的《小王子》高频词协议资产；
@@ -40,11 +40,14 @@
 - 同时支持 MacBERT/BGE-M3 的变长 EEG—上下文词 Dataset；
 - batch 内动态双序列 padding、bool mask 与长度契约；
 - validation/test 上下文目标访问的代码级拒绝；
-- Windows `num_workers=2` 下按 worker 懒建只读 memmap/cache reader。
+- Windows `num_workers=2` 下按 worker 懒建只读 memmap/cache reader；
+- 保留时间维的非因果卷积 EEG sequence encoder；
+- 精确 stride 4 的 mask/length 传播与 padding 严格清零；
+- 逐时间点 LayerNorm 和可配置的 subject FiLM adapter；
+- FP32、CUDA AMP、最大真实长度及多 worker 真实 batch smoke。
 
 尚未实现：
 
-- EEG sequence encoder；
 - Sinkhorn OT 与训练损失；
 - 固定词表评估器。
 
@@ -81,6 +84,11 @@ python scripts/smoke_context_eeg_dataloader.py --outer-fold 0 --role train --tex
 python scripts/smoke_context_eeg_dataloader.py --outer-fold 0 --role train --text-backend bge_m3 --batch-size 4 --num-workers 2 --num-batches 3
 python scripts/smoke_context_eeg_dataloader.py --outer-fold 0 --role validation --text-backend bge_m3 --batch-size 4 --num-workers 0 --num-batches 3
 python scripts/smoke_context_eeg_dataloader.py --outer-fold 0 --role test --text-backend bge_m3 --batch-size 4 --num-workers 0 --num-batches 3
+python scripts/audit_eeg_sequence_encoder.py
+python scripts/smoke_eeg_sequence_encoder.py --outer-fold 0 --role train --batch-size 8 --num-workers 0 --device cuda --precision fp32 --num-batches 3
+python scripts/smoke_eeg_sequence_encoder.py --outer-fold 0 --role train --batch-size 16 --num-workers 0 --device cuda --precision amp --num-batches 3
+python scripts/smoke_eeg_sequence_encoder.py --outer-fold 0 --role train --batch-size 8 --num-workers 2 --device cuda --precision fp32 --num-batches 1 --config configs/models/eeg_sequence_conv_no_subject_v1.yaml
+python scripts/smoke_eeg_sequence_encoder.py --outer-fold 0 --role train --batch-size 8 --num-workers 0 --device cuda --precision fp32 --num-batches 1 --maximum-length-batch
 ```
 
 MacBERT 配置固定在
@@ -103,3 +111,8 @@ tokenizer 均固定 revision
 
 阶段 3 的 Sample/Batch 字段、访问边界、padding 约定和 worker 资源
 生命周期见 [docs/DATA_PIPELINE.md](docs/DATA_PIPELINE.md)。
+
+阶段 4 的默认模型配置位于
+`configs/models/eeg_sequence_conv_v1.yaml`，无 subject adapter 消融配置位于
+`configs/models/eeg_sequence_conv_no_subject_v1.yaml`。encoder 只输出
+`[B, T', 256]` EEG 时间序列、bool mask 和精确长度，不执行整句池化。

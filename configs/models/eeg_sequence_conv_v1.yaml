@@ -1,0 +1,33 @@
+schema_version: eeg_sequence_conv_v1
+input_channels: 128
+hidden_dim: 256
+output_dim: 256
+total_stride: 4
+minimum_input_length: 7
+
+stem:
+  kernel_size: 7
+  stride: 2
+
+residual_blocks:
+  kernel_size: 5
+  dilations: [1, 2, 4, 8]
+  count: 4
+
+downsample:
+  kernel_size: 5
+  stride: 2
+
+dropout: 0.1
+normalization: timewise_layer_norm
+activation: gelu
+convolution_mode: symmetric_noncausal
+parameter_initialization: pytorch_default
+mask_rule: zero_after_every_operation
+
+subject_adapter:
+  enabled: true
+  type: film
+  num_subjects: 8
+  gamma_initialization: 1.0
+  beta_initialization: 0.0
