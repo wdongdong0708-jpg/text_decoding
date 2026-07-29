@@ -26,7 +26,7 @@
 
 ## 阶段 2：上下文词表示缓存
 
-状态：2A MacBERT baseline 已完成；2B BGE-M3 为下一步。
+状态：2A MacBERT baseline 与 2B BGE-M3 ColBERT 缓存均已完成。
 
 1. 定义连续数组缓存契约：词向量、句子 offsets、词表面形式、字符跨度、keyword ID、模型元数据。
 2. 先实现 MacBERT baseline：缓存最后 4 层 `[total_words, 4, 768]`，训练时学习 scalar mix。
@@ -57,6 +57,35 @@
   聚合规则、运行库版本、dtype、shape、文件大小及每个数组 SHA256。
 - 缓存目录 `data/cache/context_words/macbert_v1/` 不包含 fold、split
   或 EEG 信息，并由 `.gitignore` 排除。
+
+### 阶段 2B 完成记录
+
+- 模型与 fast tokenizer：`BAAI/bge-m3`，二者均固定 revision
+  `5617a9f61b028005a4858fdac845db406aefb181`；模型 hidden size 与
+  ColBERT dimension 均为 1024。
+- 使用 `FlagEmbedding==1.4.0` 的公开接口
+  `BGEM3FlagModel.encode(return_dense=False, return_sparse=False,
+  return_colbert_vecs=True)`；没有使用 dense 整句向量或 sparse 词权重。
+- 通过 FlagEmbedding 源码和直接前向实测确认：公开 ColBERT 第 `j` 行
+  对应 fast tokenizer 第 `j+1` 个 token；模型去除首个 CLS、保留 SEP，
+  公开接口再去除 padding。10 条代表短句的公开接口与直接前向最大误差为
+  0（容差 `1e-6`）。
+- 输入始终为完整规范化短句。模型前向和字符重叠加权聚合使用
+  `float32`，写盘前转换为 `float16`；reader 可恢复为 `float32`。
+- 全量结果为 2,809 个短句、14,034 个词，词向量
+  `[14034, 1024] float16`；向量文件 SHA256 为
+  `f8b6f93e7a7fca7716a2276c1d187359c50b9239968e09869f0ddc6219c0704b`。
+- 全量 offset 失败、特殊 token 重叠、空向量和非有限向量数量均为 0；
+  3,625 个词使用多个 subtoken（25.83%），最大输入长度为 25 tokens，
+  发现 20 个 `<unk>` token。
+- BGE-M3 SentencePiece 有 1,408 个 tokenizer token 跨越两个或更多冻结词
+  的字符边界。实现不改变冻结词序列，而是按每个 occurrence 的正长度字符
+  重叠独立聚合；该现象不是特殊 token 或标点污染，并在 metadata 中显式记录。
+- BGE-M3 与 MacBERT 缓存的 `text_embedding_idx`、sentence offsets、
+  occurrence ID、词位置、表面形式、字符跨度与 keyword ID 完全一致，
+  可由同一个 `ContextWordStore` 读取。
+- 缓存只由冻结文本生成，不包含 fold、split 或 EEG 信息；后续训练仍必须
+  用 fold mask 阻止 outer-test 表示进入训练、prototype 或 checkpoint 选择。
 
 ## 阶段 3：变长双序列数据管线
 

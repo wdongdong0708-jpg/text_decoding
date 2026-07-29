@@ -128,3 +128,20 @@ def test_context_store_contract_accepts_model_agnostic_2d_vectors(
     store = ContextWordStore(tmp_path)
     assert store.context_vectors.shape == (3, 5)
     assert store.get_sentence(20).vectors.shape == (1, 5)
+
+
+def test_context_store_can_restore_float16_vectors_as_float32(tmp_path: Path):
+    sentences = _sentences()
+    vectors = np.arange(3 * 5, dtype=np.float16).reshape(3, 5)
+    write_context_word_store(
+        tmp_path,
+        vectors=vectors,
+        sentences=sentences,
+        metadata_fields=_metadata_fields(),
+    )
+    store = ContextWordStore(tmp_path)
+    stored = store.get_sentence(10)
+    restored = store.get_sentence(10, vector_dtype="float32")
+    assert stored.vectors.dtype == np.float16
+    assert restored.vectors.dtype == np.float32
+    np.testing.assert_array_equal(restored.vectors, vectors[:2].astype(np.float32))

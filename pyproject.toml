@@ -15,6 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 text = [
+  "FlagEmbedding==1.4.0",
   "huggingface-hub>=0.30",
   "safetensors>=0.5",
   "tokenizers>=0.22",
@@ -34,4 +35,3 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-

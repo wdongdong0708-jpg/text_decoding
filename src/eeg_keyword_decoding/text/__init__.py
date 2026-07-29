@@ -1,3 +1,10 @@
+from .bge_m3 import (
+    BGE_M3_COLBERT_TOKEN_MAPPING,
+    BgeM3ColbertExtractor,
+    BgeM3SentenceExtraction,
+    BgeM3Spec,
+    colbert_source_token_indices,
+)
 from .context_store import (
     ContextWordStore,
     SentenceContextWords,
@@ -26,6 +33,10 @@ from .schema import (
 
 __all__ = [
     "AGGREGATION_RULE",
+    "BGE_M3_COLBERT_TOKEN_MAPPING",
+    "BgeM3ColbertExtractor",
+    "BgeM3SentenceExtraction",
+    "BgeM3Spec",
     "CONTEXT_WORD_STORE_SCHEMA_VERSION",
     "ContextSentence",
     "ContextWordOccurrence",
@@ -40,6 +51,7 @@ __all__ = [
     "aggregate_token_features",
     "align_sentence_to_tokens",
     "align_word_to_tokens",
+    "colbert_source_token_indices",
     "load_context_sentences",
     "write_context_word_store",
 ]

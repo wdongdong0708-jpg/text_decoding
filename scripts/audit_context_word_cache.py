@@ -7,6 +7,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SRC_ROOT = PROJECT_ROOT / "src"
@@ -25,6 +27,25 @@ from eeg_keyword_decoding.text import (
 def _source_path(value: dict[str, Any]) -> Path:
     path = Path(str(value["path"]))
     return path if path.is_absolute() else PROJECT_ROOT / path
+
+
+def _source_records(
+    value: Any,
+    *,
+    prefix: str = "sources",
+) -> list[tuple[str, dict[str, Any]]]:
+    records: list[tuple[str, dict[str, Any]]] = []
+    if isinstance(value, dict):
+        if isinstance(value.get("path"), str) and isinstance(
+            value.get("sha256"), str
+        ):
+            records.append((prefix, value))
+        else:
+            for name, nested in value.items():
+                records.extend(
+                    _source_records(nested, prefix=f"{prefix}.{name}")
+                )
+    return records
 
 
 def _audit_example(
@@ -99,19 +120,31 @@ def main() -> None:
         action="store_true",
         help="Allow tokenizer files to be fetched if absent locally.",
     )
+    parser.add_argument(
+        "--compare-cache-dir",
+        type=Path,
+        help="Compare sentence and frozen word ordering with another store.",
+    )
     args = parser.parse_args()
 
     cache_dir = args.cache_dir.resolve()
     store = ContextWordStore(cache_dir, verify_hashes=True)
     sources = store.metadata.sources
+    source_hash_audit: dict[str, dict[str, Any]] = {}
+    for name, record in _source_records(sources):
+        path = _source_path(record)
+        actual_sha256 = file_sha256(path)
+        matches = actual_sha256 == record["sha256"]
+        source_hash_audit[name] = {
+            "path": str(path),
+            "expected_sha256": record["sha256"],
+            "actual_sha256": actual_sha256,
+            "matches": matches,
+        }
+        if not matches:
+            raise ValueError(f"Recorded source hash changed: {path}")
     sentence_labels_path = _source_path(sources["sentence_labels"])
     occurrences_path = _source_path(sources["word_occurrences"])
-    for name, path in (
-        ("sentence_labels", sentence_labels_path),
-        ("word_occurrences", occurrences_path),
-    ):
-        if file_sha256(path) != sources[name]["sha256"]:
-            raise ValueError(f"Frozen source hash changed: {path}")
     sentences = load_context_sentences(
         sentence_labels_path,
         occurrences_path,
@@ -141,6 +174,8 @@ def main() -> None:
     maximum_token_length = 0
     total_subtoken_references = 0
     shared_token_count = 0
+    multiple_subtoken_word_count = 0
+    unknown_token_count = 0
     for sentence in sentences:
         encoded = tokenizer(
             sentence.text,
@@ -175,6 +210,9 @@ def main() -> None:
         total_subtoken_references += sum(
             len(alignment.token_indices) for alignment in alignments
         )
+        multiple_subtoken_word_count += sum(
+            len(alignment.token_indices) > 1 for alignment in alignments
+        )
         usage = Counter(
             token_index
             for alignment in alignments
@@ -183,6 +221,9 @@ def main() -> None:
         shared_token_count += sum(count > 1 for count in usage.values())
         if sentence.text_embedding_idx in representative_indices:
             tokens = tokenizer.convert_ids_to_tokens(encoded["input_ids"])
+            unknown_token_count += sum(
+                token == tokenizer.unk_token for token in tokens
+            )
             examples[sentence.text_embedding_idx] = _audit_example(
                 sentence,
                 tokens,
@@ -191,8 +232,55 @@ def main() -> None:
                 attention,
                 alignments,
             )
+        else:
+            tokens = tokenizer.convert_ids_to_tokens(encoded["input_ids"])
+            unknown_token_count += sum(
+                token == tokenizer.unk_token for token in tokens
+            )
 
     vector_descriptor = store.metadata.arrays["context_vectors"]
+    vector_rows = np.asarray(store.context_vectors, dtype=np.float32).reshape(
+        store.context_vectors.shape[0],
+        -1,
+    )
+    non_finite_vector_count = int(
+        np.count_nonzero(~np.isfinite(vector_rows).all(axis=1))
+    )
+    empty_vector_count = int(
+        np.count_nonzero(np.linalg.norm(vector_rows, axis=1) == 0)
+    )
+    comparison: dict[str, Any] | None = None
+    if args.compare_cache_dir is not None:
+        other = ContextWordStore(
+            args.compare_cache_dir.resolve(),
+            verify_hashes=True,
+        )
+        comparison_arrays = (
+            "text_embedding_indices",
+            "sentence_offsets",
+            "word_occurrence_ids",
+            "word_positions",
+            "surface_forms",
+            "char_spans",
+            "keyword_ids",
+        )
+        array_matches = {
+            name: bool(
+                np.array_equal(
+                    getattr(store, name),
+                    getattr(other, name),
+                )
+            )
+            for name in comparison_arrays
+        }
+        comparison = {
+            "cache_dir": str(other.root),
+            "array_matches": array_matches,
+            "all_frozen_order_arrays_match": all(array_matches.values()),
+        }
+        if not comparison["all_frozen_order_arrays_match"]:
+            raise ValueError("Context stores have incompatible frozen ordering")
+
     result = {
         "schema_version": store.metadata.schema_version,
         "cache_dir": str(cache_dir),
@@ -212,7 +300,17 @@ def main() -> None:
         ),
         "maximum_attended_token_length": maximum_token_length,
         "total_subtoken_references": total_subtoken_references,
+        "multiple_subtoken_word_count": multiple_subtoken_word_count,
+        "multiple_subtoken_word_fraction": (
+            multiple_subtoken_word_count
+            / sum(sentence.word_count for sentence in sentences)
+        ),
         "tokens_shared_across_frozen_words": shared_token_count,
+        "unknown_token_count": unknown_token_count,
+        "non_finite_vector_count": non_finite_vector_count,
+        "empty_vector_count": empty_vector_count,
+        "source_hash_audit": source_hash_audit,
+        "comparison": comparison,
         "array_sha256": {
             name: descriptor.sha256
             for name, descriptor in sorted(store.metadata.arrays.items())
@@ -225,13 +323,20 @@ def main() -> None:
     print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
     if failures:
         raise SystemExit(1)
+    if non_finite_vector_count or empty_vector_count:
+        raise ValueError(
+            "Context store contains invalid vectors: "
+            f"non_finite={non_finite_vector_count}, empty={empty_vector_count}"
+        )
     expected = store.metadata.generation
     for key in (
         "maximum_attended_token_length",
         "total_subtoken_references",
         "tokens_shared_across_frozen_words",
+        "multiple_subtoken_word_count",
+        "unknown_token_count",
     ):
-        if result[key] != expected[key]:
+        if key in expected and result[key] != expected[key]:
             raise ValueError(
                 f"Independent audit disagrees for {key}: "
                 f"{result[key]} != {expected[key]}"

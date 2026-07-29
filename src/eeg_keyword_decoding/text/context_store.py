@@ -270,7 +270,12 @@ class ContextWordStore:
     def keyword_ids(self) -> np.ndarray:
         return self._arrays["keyword_ids"]
 
-    def get_sentence(self, text_embedding_idx: int) -> SentenceContextWords:
+    def get_sentence(
+        self,
+        text_embedding_idx: int,
+        *,
+        vector_dtype: str | np.dtype[Any] | None = None,
+    ) -> SentenceContextWords:
         try:
             sentence_row = self._sentence_row_by_idx[int(text_embedding_idx)]
         except KeyError as error:
@@ -279,9 +284,12 @@ class ContextWordStore:
             ) from error
         start = int(self.sentence_offsets[sentence_row])
         stop = int(self.sentence_offsets[sentence_row + 1])
+        vectors = self.context_vectors[start:stop]
+        if vector_dtype is not None:
+            vectors = vectors.astype(vector_dtype, copy=False)
         return SentenceContextWords(
             text_embedding_idx=int(text_embedding_idx),
-            vectors=self.context_vectors[start:stop],
+            vectors=vectors,
             word_occurrence_ids=self.word_occurrence_ids[start:stop],
             word_positions=self.word_positions[start:stop],
             surface_forms=self.surface_forms[start:stop],

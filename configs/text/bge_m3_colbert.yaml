@@ -1,0 +1,39 @@
+schema_version: bge_m3_colbert_context_cache_v1
+
+model:
+  model_id: BAAI/bge-m3
+  revision: 5617a9f61b028005a4858fdac845db406aefb181
+  tokenizer_revision: 5617a9f61b028005a4858fdac845db406aefb181
+  max_length: 128
+  use_fast: true
+  use_fp16: false
+  normalize_embeddings: true
+  colbert_dim: -1
+
+inference:
+  device: auto
+  batch_size: 16
+  compute_dtype: float32
+  storage_dtype: float16
+  local_files_only: false
+
+aggregation:
+  rule: character_overlap_length_weighted_mean
+  offset_unit: normalized Unicode code-point index; end-exclusive
+  normalize_text_rule: Unicode NFKC; NBSP to ASCII space; strip
+  normalize_text_rule_version: normalize_text_nfkc_nbsp_space_strip_v1
+  special_token_policy: exclude and fail if a special token overlaps a word
+  padding_token_policy: excluded by FlagEmbedding public encode
+  colbert_token_mapping: output index j maps to tokenizer index j+1; CLS removed, SEP retained, padding stripped
+
+inputs:
+  sentence_labels: data/protocols/littleprince_hf_v1/littleprince_sentence_keyword_labels_v1.csv
+  word_occurrences: data/protocols/littleprince_hf_v1/littleprince_word_occurrences_v1.csv
+
+output:
+  cache_dir: data/cache/context_words/bge_m3_colbert_v1
+
+audit:
+  representative_text_embedding_indices: [17, 18, 23, 27, 29, 134, 143, 279, 313, 1689]
+  mapping_atol: 1.0e-6
+  repeat_atol: 1.0e-6
